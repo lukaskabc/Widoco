@@ -2,10 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [develop, master]
+    branches: [develop, master, 'lukaskabc/master']
     tags:
      - 'v*'
   pull_request:
+  workflow_dispatch:
+    
 
 
 env:
@@ -40,6 +42,7 @@ jobs:
           path: JAR/*.jar
   docker:
     runs-on: ubuntu-latest
+    if: false
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
