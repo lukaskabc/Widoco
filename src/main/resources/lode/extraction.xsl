@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 This file has been edited by Daniel Garijo, Varun Ratnakar, and Victor Chavez
+and Lukáš Kaňka: added attribute resolution for punned entites from rdf:Description nodes
 
 Copyright (c) 2010-2014, Silvio Peroni <essepuntato@gmail.com>
 
@@ -56,8 +57,17 @@ http://www.oxygenxml.com/ns/doc/xsl ">
 
     <xsl:variable name="def-lang" select="'en'" as="xs:string"/>
     <xsl:variable name="n" select="'\n|\r|\r\n'"/>
-    <xsl:variable name="rdf" select="/rdf:RDF" as="element()"/>
-    <xsl:variable name="root" select="/" as="node()"/>
+    <!--
+        The input may describe one IRI in several top-level nodes, e.g. an owl:Class and an owl:NamedIndividual (punning)
+        carrying the axioms, plus an rdf:Description (usually at the end of the document, as written by the OWL API) carrying the annotations.
+        Before rendering, every such entity node is merged with the rdf:Description nodes of the same IRI (see mode "merge"), and the whole transformation works on that tree.
+    -->
+    <xsl:variable name="root" as="document-node()">
+        <xsl:document>
+            <xsl:apply-templates select="/" mode="merge"/>
+        </xsl:document>
+    </xsl:variable>
+    <xsl:variable name="rdf" select="$root/rdf:RDF" as="element()"/>
 
     <xsl:variable name="default-labels" select="document(concat($def-lang,'.xml'))"/>
     <xsl:variable name="labels" select="document(concat($lang,'.xml'))"/>
@@ -110,6 +120,48 @@ http://www.oxygenxml.com/ns/doc/xsl ">
             <xsl:sequence select="($all-prefixes[$i],$all-uris[$i])"/>
         </xsl:for-each>
     </xsl:variable>
+
+    <!-- Entry point: render the merged tree instead of the original input. -->
+    <xsl:template match="/">
+        <xsl:apply-templates select="$rdf"/>
+    </xsl:template>
+
+    <!-- MERGE: begin -->
+    <!-- Identity copy. -->
+    <xsl:template match="@* | node()" mode="merge">
+        <xsl:copy>
+            <xsl:apply-templates select="@* | node()" mode="merge"/>
+        </xsl:copy>
+    </xsl:template>
+
+    <!--
+        A named top-level entity (owl:Class, owl:ObjectProperty, owl:NamedIndividual, ...)
+        gets every property it does not state itself copied from the rdf:Description nodes with the same IRI.
+        Properties the entity already has are kept as they are and are not mixed with values from rdf:Description,
+        so the entity's own statements always win.
+    -->
+    <!-- Pick any top level RDF element that is not rdf:Description and has about or ID attribute -->
+    <xsl:template match="/rdf:RDF/element()[not(self::rdf:Description)][@*:about | @*:ID]" mode="merge">
+        <!-- collect property names from the entity itself -->
+        <xsl:variable name="own-names" select="element()/node-name(.)" as="xs:QName*"/>
+        <xsl:copy>
+            <xsl:apply-templates select="@* | node()" mode="merge"/>
+            <!--
+                copy only attributes that are not stated by the entity itself,
+                if both define a comment, the entity's comment wins
+             -->
+            <xsl:copy-of select="f:getDescriptions(.)/element()[not(node-name(.) = $own-names)]"/>
+        </xsl:copy>
+    </xsl:template>
+
+    <!-- Returns rdf:Description nodes that describe the same IRI as $entity supplied as param. -->
+    <xsl:function name="f:getDescriptions" as="element()*">
+        <xsl:param name="entity" as="element()"/>
+        <xsl:variable name="iri" select="$entity/(@*:about | @*:ID)" as="attribute()*"/>
+        <!-- find sibling rdf:Description nodes with matching IRI -->
+        <xsl:sequence select="$entity/../rdf:Description[(@*:about | @*:ID) = $iri]"/>
+    </xsl:function>
+    <!-- MERGE: end -->
 
     <xsl:template match="rdf:RDF">
         <html xmlns="http://www.w3.org/1999/xhtml">
@@ -411,8 +463,7 @@ http://www.oxygenxml.com/ns/doc/xsl ">
                                 as="xs:string"/>
             </xsl:call-template>
             <xsl:call-template name="get.entity.url"/>
-            <xsl:apply-templates select="rdfs:comment|prov:definition|skos:definition|obo:IAO_0000115"/>
-            <xsl:apply-templates select="dc:description[normalize-space() != ''] , dc:description[@*:resource]"/>
+            <xsl:apply-templates select="f:getEntityTexts(.)"/>
             <xsl:call-template name="get.entity.metadata"/>
             <xsl:call-template name="get.rationale"/>
             <xsl:call-template name="get.example"/>
@@ -428,8 +479,7 @@ http://www.oxygenxml.com/ns/doc/xsl ">
                                 as="xs:string"/>
             </xsl:call-template>
             <xsl:call-template name="get.entity.url"/>
-            <xsl:apply-templates select="rdfs:comment|prov:definition|skos:definition|obo:IAO_0000115"/>
-            <xsl:apply-templates select="dc:description[normalize-space() != ''] , dc:description[@*:resource]"/>
+            <xsl:apply-templates select="f:getEntityTexts(.)"/>
             <xsl:call-template name="get.entity.metadata"/>
             <xsl:call-template name="get.individual.description"/>
         </div>
@@ -446,8 +496,7 @@ http://www.oxygenxml.com/ns/doc/xsl ">
                                 tunnel="yes" as="xs:string"/>
             </xsl:call-template>
             <xsl:call-template name="get.entity.url"/>
-            <xsl:apply-templates select="rdfs:comment|prov:definition|skos:definition|obo:IAO_0000115"/>
-            <xsl:apply-templates select="dc:description[normalize-space() != ''] , dc:description[@*:resource]"/>
+            <xsl:apply-templates select="f:getEntityTexts(.)"/>
             <xsl:call-template name="get.entity.metadata"/>
             <xsl:call-template name="get.rationale"/>
             <xsl:call-template name="get.example"/>
@@ -2032,8 +2081,24 @@ http://www.oxygenxml.com/ns/doc/xsl ">
     </xsl:template>
 
     <!--
-        input: un elemento tipicamente contenente solo testo
-        output: un booleano che risponde se quell'elemento è quello giusto per la lingua considerata
+        Returns texts from descriptive annotations of the current entity (definitions, then descriptions) in the selected language.
+        Repeated texts are removed. Ontologies often state the same text as e.g. both rdfs:comment and skos:definition - it is rendered only once.
+    -->
+    <xsl:function name="f:getEntityTexts" as="element()*">
+        <xsl:param name="entity" as="element()"/>
+        <xsl:variable name="candidates" as="element()*"
+                      select="($entity/(rdfs:comment | prov:definition | skos:definition | obo:IAO_0000115)[f:isInLanguage(.)],
+                               $entity/(dc:description | dcterms:description)[f:isInLanguage(.)][normalize-space() != ''],
+                               $entity/(dc:description | dcterms:description)[@*:resource])"/>
+        <xsl:sequence
+                select="for $i in 1 to count($candidates)
+                        return $candidates[$i][@*:resource or
+                            not(normalize-space(.) = (for $j in 1 to $i - 1 return normalize-space($candidates[$j])))]"/>
+    </xsl:function>
+
+    <!--
+        input: an element typically containing only text
+        output: a boolean indicating whether that element is the correct one for the language considered
     -->
     <xsl:function name="f:isInLanguage" as="xs:boolean">
         <xsl:param name="el" as="element()"/>

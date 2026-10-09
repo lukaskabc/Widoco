@@ -24,13 +24,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <!-- DISJOINT: begin -->
     <xsl:variable name="disjoints">
         <xsl:variable name="temp">
-                <xsl:for-each select="/rdf:RDF/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty|owl:NamedIndividual)[owl:disjointWith[@*:resource]]">
+                <xsl:for-each select="$rdf/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty|owl:NamedIndividual)[owl:disjointWith[@*:resource]]">
                     <xsl:variable name="id" select="@*:about|@*:ID" />
                     <xsl:for-each select="owl:disjointWith/@*:resource">
                         <disjoint rdf:about="{$id}" rdf:resource="{.}" />
                     </xsl:for-each>
                 </xsl:for-each>
-                <xsl:for-each select="/rdf:RDF/rdf:Description[exists(rdf:type[@*:resource = 'http://www.w3.org/2002/07/owl#AllDisjointClasses'])]">
+                <xsl:for-each select="$rdf/rdf:Description[exists(rdf:type[@*:resource = 'http://www.w3.org/2002/07/owl#AllDisjointClasses'])]">
                     <xsl:variable name="descriptions" select="(owl:members/rdf:Description/(@*:about|@*:ID))" as="attribute()+" />
                     <xsl:variable name="last" select="count($descriptions) - 1" as="xs:integer" />
                     <xsl:for-each select="1 to $last">
@@ -62,7 +62,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <!-- SAME AS: begin -->
     <xsl:variable name="sameas">
         <xsl:variable name="temp">
-            <xsl:for-each select="/rdf:RDF/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty|owl:NamedIndividual)[owl:sameAs[@*:resource]]">
+            <xsl:for-each select="$rdf/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty|owl:NamedIndividual)[owl:sameAs[@*:resource]]">
                 <xsl:variable name="id" select="@*:about|@*:ID" />
                 <xsl:for-each select="owl:sameAs/@*:resource">
                     <sameas rdf:about="{$id}" rdf:resource="{.}" />
@@ -88,7 +88,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <!-- EQUIVALENT ENTITY: begin -->
     <xsl:variable name="equivalent">
         <xsl:variable name="temp">
-            <xsl:for-each select="/rdf:RDF/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty)[(owl:equivalentClass|owl:equivalentProperty)[@*:resource]]">
+            <xsl:for-each select="$rdf/(owl:Class|owl:ObjectProperty|owl:DatatypeProperty)[(owl:equivalentClass|owl:equivalentProperty)[@*:resource]]">
                 <xsl:variable name="id" select="@*:about|@*:ID" />
                 <xsl:for-each select="(owl:equivalentClass|owl:equivalentProperty)/@*:resource">
                     <equivalent rdf:about="{$id}" rdf:resource="{.}" />
@@ -114,7 +114,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     <!-- INVERSE PROPERTY: begin -->
     <xsl:variable name="inverseproperty">
         <xsl:variable name="temp">
-            <xsl:for-each select="/rdf:RDF/(owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty)[owl:inverseOf]">
+            <xsl:for-each select="$rdf/(owl:ObjectProperty|owl:DatatypeProperty|owl:AnnotationProperty)[owl:inverseOf]">
                 <xsl:variable name="id" select="@*:about|@*:ID" />
                 <xsl:for-each select="owl:inverseOf[@*:resource]">
                     <inverseproperty rdf:about="{$id}" rdf:resource="{@*:resource}" />
