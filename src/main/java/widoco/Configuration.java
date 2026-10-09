@@ -456,6 +456,7 @@ public class Configuration {
 			uri = "[Ontology URI]";
 		}
 		this.mainOntologyMetadata.setNamespaceURI(uri);
+		this.mainOntologyMetadata.setLatestVersion(uri);
 		String versionUri = null;
 		try {
 			versionUri = o.getOntologyID().getVersionIRI().get().toString();
