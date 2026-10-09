@@ -1,0 +1,33 @@
+@prefix : <http://example.com/testCase/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@base <http://example.com/testCase/> .
+
+<http://example.com/testCase> rdf:type owl:Ontology ;
+                                   vann:preferredNamespaceUri "http://example.com/testCase/" .
+
+###  http://www.w3.org/2004/02/skos/core#Concept
+skos:Concept rdf:type owl:Class .
+
+
+###  http://example.com/testCase/Vehicle
+# Punned entity: an owl:Class and a skos:Concept (individual) at the same time.
+# rdfs:comment and skos:definition intentionally carry the same text.
+:Vehicle rdf:type owl:Class ,
+                  skos:Concept ;
+         rdfs:label "Vehicle"@en ;
+         rdfs:comment "A punned vehicle definition text."@en ;
+         skos:definition "A punned vehicle definition text."@en .
+
+
+###  http://example.com/testCase/Car
+# Regular (not punned) class used as a control.
+:Car rdf:type owl:Class ;
+     rdfs:subClassOf :Vehicle ;
+     rdfs:label "Car"@en ;
+     rdfs:comment "A regular car comment text."@en .
